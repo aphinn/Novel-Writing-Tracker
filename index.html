@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NaNoWriMo Word Count Tracker</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Fredoka', sans-serif;
+            background: linear-gradient(135deg, #FFF9E5 0%, #FFFEF0 100%);
+            min-height: 100vh;
+            padding: 20px;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                radial-gradient(circle at 20% 80%, rgba(139, 195, 74, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(255, 193, 7, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(76, 175, 80, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        header {
+            text-align: center;
+            color: #5D8A3A;
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            font-size: 3.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+            color: #5D8A3A;
+            text-shadow: 3px 3px 0px rgba(255, 193, 7, 0.3);
+        }
+
+        .subtitle {
+            font-size: 1.3em;
+            color: #7FA650;
+            font-weight: 500;
+        }
+
+        .card {
+            background: white;
+            border-radius: 25px;
+            padding: 35px;
+            margin-bottom: 25px;
+            box-shadow: 0 8px 20px rgba(93, 138, 58, 0.15);
+            border: 3px solid #E8F5E9;
+        }
+
+        .card h2 {
+            color: #5D8A3A;
+            font-weight: 700;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+
+        .goal-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #5D8A3A;
+            font-size: 1.1em;
+        }
+
+        input[type="number"], input[type="date"], input[type="text"] {
+            padding: 14px;
+            border: 3px solid #C5E1A5;
+            border-radius: 15px;
+            font-size: 16px;
+            font-family: 'Fredoka', sans-serif;
+            transition: all 0.3s;
+            background: #FAFFF5;
+        }
+
+        input[type="number"]:focus, input[type="date"]:focus, input[type="text"]:focus {
+            outline: none;
+            border-color: #8BC34A;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(139, 195, 74, 0.2);
+        }
+
+        button {
+            background: linear-gradient(135deg, #8BC34A 0%, #7CB342 100%);
+            color: white;
+            border: none;
+            padding: 14px 32px;
+            border-radius: 15px;
+            font-size: 17px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Fredoka', sans-serif;
+            box-shadow: 0 4px 12px rgba(139, 195, 74, 0.3);
+        }
+
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(139, 195, 74, 0.4);
+            background: linear-gradient(135deg, #9CCC65 0%, #8BC34A 100%);
+        }
+
+        button:active {
+            transform: translateY(-1px);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #E8F5E9 0%, #F1F8E9 100%);
+            padding: 25px;
+            border-radius: 20px;
+            text-align: center;
+            border: 3px solid #C5E1A5;
+            box-shadow: 0 4px 10px rgba(93, 138, 58, 0.1);
+        }
+
+        .stat-value {
+            font-size: 2.8em;
+            font-weight: 700;
+            color: #5D8A3A;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            color: #7FA650;
+            font-size: 0.95em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .status-message {
+            padding: 18px 20px;
+            border-radius: 15px;
+            margin-top: 20px;
+            font-weight: 600;
+            font-size: 1.05em;
+        }
+
+        .status-on-track {
+            background: linear-gradient(135deg, #C8E6C9 0%, #DCEDC8 100%);
+            color: #33691E;
+            border: 3px solid #8BC34A;
+        }
+
+        .status-behind {
+            background: linear-gradient(135deg, #FFF9C4 0%, #FFECB3 100%);
+            color: #F57F17;
+            border: 3px solid #FFC107;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .goal-section {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 2.5em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📝 NaNoWriMo Tracker</h1>
+            <p class="subtitle">Track your daily writing progress</p>
+        </header>
+
+        <div class="card">
+            <h2>Set Your Profile</h2>
+            <div class="goal-section">
+                <div class="input-group">
+                    <label for="username">Your Username</label>
+                    <input type="text" id="username" placeholder="Enter a unique username">
+                </div>
+                <div style="display: flex; align-items: flex-end;">
+                    <button onclick="saveUsername()">Save Username</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Set Your Goal</h2>
+            <div class="goal-section">
+                <div class="input-group">
+                    <label for="monthGoal">Monthly Word Goal</label>
+                    <input type="number" id="monthGoal" value="50000" min="0">
+                </div>
+                <div class="input-group">
+                    <label for="startDate">Start Date</label>
+                    <input type="date" id="startDate" value="2025-11-01">
+                </div>
+            </div>
+            <button onclick="setGoal()">Save Goal</button>
+        </div>
+
+        <div class="card">
+            <h2>Add Daily Word Count</h2>
+            <div class="goal-section">
+                <div class="input-group">
+                    <label for="entryDate">Date</label>
+                    <input type="date" id="entryDate">
+                </div>
+                <div class="input-group">
+                    <label for="wordCount">Words Written</label>
+                    <input type="number" id="wordCount" min="0" placeholder="Enter word count">
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="addEntry()">Add Entry</button>
+                <button onclick="clearEntries()" style="background: linear-gradient(135deg, #FF9800 0%, #FB8C00 100%);">Clear All Entries</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Compare with Friends</h2>
+            <p style="color: #7FA650; margin-bottom: 20px;">Add friends by their username to automatically sync progress!</p>
+            <div class="goal-section">
+                <div class="input-group">
+                    <label for="friendUsername">Friend's Username</label>
+                    <input type="text" id="friendUsername" placeholder="Enter friend's username">
+                </div>
+                <div style="display: flex; align-items: flex-end; gap: 10px;">
+                    <button onclick="addFriendByUsername()">Add Friend</button>
+                    <button onclick="clearFriends()" style="background: linear-gradient(135deg, #FF9800 0%, #FB8C00 100%);">Clear All Friends</button>
+                </div>
+            </div>
+            <div id="friendsList" style="margin-top: 15px;"></div>
+        </div>
+
+        <div class="card">
+            <h2>Your Progress</h2>
+            <div class="chart-container">
+                <canvas id="progressChart"></canvas>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalWords">0</div>
+                    <div class="stat-label">Total Words</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="goalWords">50,000</div>
+                    <div class="stat-label">Goal</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="wordsRemaining">50,000</div>
+                    <div class="stat-label">Remaining</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="dailyAverage">0</div>
+                    <div class="stat-label">Daily Average</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="targetDaily">1,667</div>
+                    <div class="stat-label">Target Daily</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="daysWritten">0</div>
+                    <div class="stat-label">Days Written</div>
+                </div>
+            </div>
+
+            <div id="statusMessage"></div>
+        </div>
+    </div>
+
+    <script>
+        let goal = 50000;
+        let startDate = new Date('2025-11-01');
+        let entries = {};
+        let friends = [];
+        let friendUsernames = [];
+        let username = '';
+        let chart = null;
+
+        async function loadData() {
+            const savedData = localStorage.getItem('nanoWrimoTracker');
+            if (savedData) {
+                try {
+                    const data = JSON.parse(savedData);
+                    goal = data.goal || 50000;
+                    startDate = new Date(data.startDate || '2025-11-01');
+                    entries = data.entries || {};
+                    username = data.username || '';
+                    friendUsernames = data.friendUsernames || [];
+                    
+                    document.getElementById('monthGoal').value = goal;
+                    document.getElementById('startDate').value = startDate.toISOString().split('T')[0];
+                    document.getElementById('username').value = username;
+                    
+                    if (friendUsernames.length > 0) {
+                        await loadFriendsData();
+                    }
+                } catch (e) {
+                    console.error('Error loading saved data:', e);
+                }
+            }
+        }
+
+        async function saveData() {
+            const data = {
+                goal: goal,
+                startDate: startDate.toISOString().split('T')[0],
+                entries: entries,
+                username: username,
+                friendUsernames: friendUsernames
+            };
+            localStorage.setItem('nanoWrimoTracker', JSON.stringify(data));
+            
+            if (username && window.storage) {
+                try {
+                    const cloudData = {
+                        name: username,
+                        goal: goal,
+                        startDate: startDate.toISOString().split('T')[0],
+                        entries: entries,
+                        lastUpdated: new Date().toISOString()
+                    };
+                    await window.storage.set(`user:${username}`, JSON.stringify(cloudData), true);
+                } catch (e) {
+                    console.error('Error saving to cloud:', e);
+                }
+            }
+        }
+
+        async function saveUsername() {
+            const newUsername = document.getElementById('username').value.trim();
+            if (!newUsername) {
+                alert('Please enter a username');
+                return;
+            }
+            
+            if (window.storage) {
+                try {
+                    const existing = await window.storage.get(`user:${newUsername}`, true);
+                    if (existing && existing.value && username !== newUsername) {
+                        const proceed = confirm('This username is already in use. Continue anyway? (You will overwrite their data)');
+                        if (!proceed) return;
+                    }
+                } catch (e) {
+                    // Username doesn't exist, which is fine
+                }
+            }
+            
+            username = newUsername;
+            await saveData();
+            alert(`Username saved! You're now syncing as "${username}"`);
+        }
+
+        async function loadFriendsData() {
+            if (!window.storage) return;
+            
+            friends = [];
+            for (const friendUsername of friendUsernames) {
+                try {
+                    const result = await window.storage.get(`user:${friendUsername}`, true);
+                    if (result && result.value) {
+                        const friendData = JSON.parse(result.value);
+                        friends.push(friendData);
+                    }
+                } catch (e) {
+                    console.error(`Error loading friend ${friendUsername}:`, e);
+                }
+            }
+        }
+
+        async function addFriendByUsername() {
+            const friendUsername = document.getElementById('friendUsername').value.trim();
+            if (!friendUsername) {
+                alert('Please enter a friend\'s username');
+                return;
+            }
+            
+            if (friendUsername === username) {
+                alert('You cannot add yourself as a friend!');
+                return;
+            }
+            
+            if (friendUsernames.includes(friendUsername)) {
+                alert('This friend is already added!');
+                return;
+            }
+            
+            if (!window.storage) {
+                alert('Cloud storage not available');
+                return;
+            }
+            
+            try {
+                const result = await window.storage.get(`user:${friendUsername}`, true);
+                if (!result || !result.value) {
+                    alert(`User "${friendUsername}" not found. Make sure they have saved their username and synced their data.`);
+                    return;
+                }
+                
+                friendUsernames.push(friendUsername);
+                await loadFriendsData();
+                await saveData();
+                document.getElementById('friendUsername').value = '';
+                updateDisplay();
+                updateFriendsList();
+                alert(`Successfully added ${friendUsername}!`);
+            } catch (e) {
+                alert(`Error adding friend: ${e.message}`);
+                console.error('Error adding friend:', e);
+            }
+        }
+
+        async function removeFriend(username) {
+            if (confirm(`Remove ${username} from comparison?`)) {
+                friendUsernames = friendUsernames.filter(u => u !== username);
+                await loadFriendsData();
+                await saveData();
+                updateDisplay();
+                updateFriendsList();
+            }
+        }
+
+        async function clearFriends() {
+            if (confirm('Remove all friends from comparison?')) {
+                friendUsernames = [];
+                friends = [];
+                await saveData();
+                updateDisplay();
+                updateFriendsList();
+            }
+        }
+
+        function updateFriendsList() {
+            const friendsList = document.getElementById('friendsList');
+            if (friends.length === 0) {
+                friendsList.innerHTML = '<p style="color: #7FA650; font-style: italic;">No friends added yet. Add a friend by their username!</p>';
+            } else {
+                friendsList.innerHTML = '<div style="display: flex; flex-wrap: wrap; gap: 10px;">' +
+                    friends.map((friend) => {
+                        const totalWords = Object.values(friend.entries || {}).reduce((sum, val) => sum + val, 0);
+                        return `
+                            <div style="background: linear-gradient(135deg, #E8F5E9 0%, #F1F8E9 100%); 
+                                        padding: 12px 16px; 
+                                        border-radius: 12px; 
+                                        border: 2px solid #C5E1A5;
+                                        display: flex;
+                                        align-items: center;
+                                        gap: 10px;">
+                                <span style="font-weight: 600; color: #5D8A3A;">${friend.name}</span>
+                                <span style="color: #7FA650; font-size: 0.9em;">(${totalWords.toLocaleString()} words)</span>
+                                <button onclick="removeFriend('${friend.name}')" 
+                                        style="padding: 4px 8px; 
+                                               font-size: 0.85em; 
+                                               background: #FF9800;
+                                               min-width: auto;">✕</button>
+                            </div>
+                        `;
+                    }).join('') +
+                    '</div>';
+            }
+        }
+
+        async function refreshFriendData() {
+            if (friendUsernames.length > 0 && window.storage) {
+                await loadFriendsData();
+                updateDisplay();
+            }
+        }
+
+        setInterval(refreshFriendData, 30000);
+
+        function setGoal() {
+            goal = parseInt(document.getElementById('monthGoal').value) || 50000;
+            startDate = new Date(document.getElementById('startDate').value);
+            saveData();
+            updateDisplay();
+        }
+
+        function addEntry() {
+            const date = document.getElementById('entryDate').value;
+            const words = parseInt(document.getElementById('wordCount').value);
+            
+            if (!date || isNaN(words)) {
+                alert('Please enter both date and word count');
+                return;
+            }
+
+            entries[date] = words;
+            document.getElementById('wordCount').value = '';
+            saveData();
+            updateDisplay();
+        }
+
+        function clearEntries() {
+            if (confirm('Are you sure you want to clear all entries? This cannot be undone.')) {
+                entries = {};
+                saveData();
+                updateDisplay();
+            }
+        }
+
+        function updateDisplay() {
+            const sortedDates = Object.keys(entries).sort();
+            const totalWords = Object.values(entries).reduce((sum, val) => sum + val, 0);
+            const daysWritten = sortedDates.length;
+            
+            const daysInMonth = 30;
+            const targetDaily = Math.ceil(goal / daysInMonth);
+            const dailyAverage = daysWritten > 0 ? Math.round(totalWords / daysWritten) : 0;
+            const wordsRemaining = Math.max(0, goal - totalWords);
+            const progress = Math.min(100, Math.round((totalWords / goal) * 100));
+            
+            let dayNumber = 1;
+            if (sortedDates.length > 0) {
+                const latestDate = new Date(sortedDates[sortedDates.length - 1]);
+                const start = new Date(startDate);
+                dayNumber = Math.ceil((latestDate - start) / (1000 * 60 * 60 * 24)) + 1;
+            }
+            
+            const expectedWords = Math.round((goal / daysInMonth) * dayNumber);
+            const isOnTrack = totalWords >= expectedWords;
+
+            document.getElementById('totalWords').textContent = totalWords.toLocaleString();
+            document.getElementById('goalWords').textContent = goal.toLocaleString();
+            document.getElementById('wordsRemaining').textContent = wordsRemaining.toLocaleString();
+            document.getElementById('dailyAverage').textContent = dailyAverage.toLocaleString();
+            document.getElementById('targetDaily').textContent = targetDaily.toLocaleString();
+            document.getElementById('daysWritten').textContent = daysWritten;
+
+            const statusDiv = document.getElementById('statusMessage');
+            if (totalWords >= goal) {
+                statusDiv.className = 'status-message status-on-track';
+                statusDiv.textContent = '🎉 Congratulations! You\'ve reached your goal!';
+            } else if (isOnTrack) {
+                statusDiv.className = 'status-message status-on-track';
+                statusDiv.textContent = `✅ You're on track! Keep it up! You're ${totalWords - expectedWords} words ahead of schedule.`;
+            } else {
+                const daysRemaining = Math.max(1, daysInMonth - dayNumber);
+                const wordsNeededPerDay = Math.ceil((goal - totalWords) / daysRemaining);
+                statusDiv.className = 'status-message status-behind';
+                statusDiv.textContent = `⚠️ You're ${expectedWords - totalWords} words behind schedule. Write ${wordsNeededPerDay} words per day to catch up.`;
+            }
+
+            updateChart(sortedDates);
+        }
+
+        function updateChart(sortedDates) {
+            const ctx = document.getElementById('progressChart').getContext('2d');
+            
+            let cumulativeWords = 0;
+            const actualData = [];
+            
+            sortedDates.forEach(date => {
+                cumulativeWords += entries[date];
+                actualData.push({x: date, y: cumulativeWords});
+            });
+
+            const daysInMonth = 30;
+            const targetData = [];
+            for (let i = 0; i <= daysInMonth; i++) {
+                const date = new Date(startDate);
+                date.setDate(date.getDate() + i);
+                targetData.push({
+                    x: date.toISOString().split('T')[0],
+                    y: (goal / daysInMonth) * i
+                });
+            }
+
+            const friendColors = [
+                { border: '#FF6B6B', bg: 'rgba(255, 107, 107, 0.1)' },
+                { border: '#4ECDC4', bg: 'rgba(78, 205, 196, 0.1)' },
+                { border: '#FFD93D', bg: 'rgba(255, 217, 61, 0.1)' },
+                { border: '#A8E6CF', bg: 'rgba(168, 230, 207, 0.1)' },
+                { border: '#FF8ED4', bg: 'rgba(255, 142, 212, 0.1)' }
+            ];
+
+            const friendDatasets = friends.map((friend, index) => {
+                const friendSortedDates = Object.keys(friend.entries).sort();
+                let friendCumulative = 0;
+                const friendData = friendSortedDates.map(date => {
+                    friendCumulative += friend.entries[date];
+                    return {x: date, y: friendCumulative};
+                });
+
+                const colorIndex = index % friendColors.length;
+                return {
+                    label: friend.name,
+                    data: friendData,
+                    borderColor: friendColors[colorIndex].border,
+                    backgroundColor: friendColors[colorIndex].bg,
+                    tension: 0.4,
+                    fill: false,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    borderWidth: 2,
+                    borderDash: [3, 3]
+                };
+            });
+
+            let allDates;
+            const allEntryDates = [...sortedDates, ...friends.flatMap(f => Object.keys(f.entries))];
+            if (allEntryDates.length > 0) {
+                allDates = [...new Set([...allEntryDates, ...targetData.map(d => d.x)])].sort();
+            } else {
+                allDates = targetData.map(d => d.x);
+            }
+
+            if (chart) {
+                chart.destroy();
+                chart = null;
+            }
+
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: allDates,
+                    datasets: [
+                        {
+                            label: 'Your Progress',
+                            data: actualData,
+                            borderColor: '#5D8A3A',
+                            backgroundColor: 'rgba(93, 138, 58, 0.2)',
+                            tension: 0.4,
+                            fill: true,
+                            pointRadius: 5,
+                            pointHoverRadius: 7,
+                            borderWidth: 3,
+                            spanGaps: false
+                        },
+                        ...friendDatasets,
+                        {
+                            label: 'Target Progress',
+                            data: targetData,
+                            borderColor: '#7FA650',
+                            borderDash: [5, 5],
+                            fill: false,
+                            tension: 0,
+                            pointRadius: 0,
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Date',
+                                color: '#5D8A3A',
+                                font: {
+                                    family: 'Fredoka',
+                                    weight: 600
+                                }
+                            },
+                            ticks: {
+                                maxRotation: 45,
+                                minRotation: 45,
+                                maxTicksLimit: 15,
+                                color: '#7FA650'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Words',
+                                color: '#5D8A3A',
+                                font: {
+                                    family: 'Fredoka',
+                                    weight: 600
+                                }
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString();
+                                },
+                                color: '#7FA650'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                font: {
+                                    family: 'Fredoka',
+                                    weight: 600
+                                },
+                                color: '#5D8A3A'
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.parsed.y.toLocaleString() + ' words';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            await loadData();
+            document.getElementById('entryDate').valueAsDate = new Date();
+            updateDisplay();
+            updateFriendsList();
+        });
+    </script>
+</body>
+</html>
