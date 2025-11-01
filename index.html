@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NaNoWriMo Word Count Tracker</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap');
         
@@ -140,6 +145,12 @@
             transform: translateY(-1px);
         }
 
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -191,10 +202,43 @@
             border: 3px solid #FFC107;
         }
 
+        .status-error {
+            background: linear-gradient(135deg, #FFCDD2 0%, #FFEBEE 100%);
+            color: #C62828;
+            border: 3px solid #F44336;
+        }
+
         .chart-container {
             position: relative;
             height: 400px;
             margin-bottom: 30px;
+        }
+
+        .firebase-notice {
+            background: linear-gradient(135deg, #FFF9C4 0%, #FFECB3 100%);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            border: 3px solid #FFC107;
+        }
+
+        .firebase-notice h3 {
+            color: #F57F17;
+            margin-bottom: 10px;
+        }
+
+        .firebase-notice p {
+            color: #F57F17;
+            margin-bottom: 8px;
+            line-height: 1.6;
+        }
+
+        .firebase-notice code {
+            background: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            color: #5D8A3A;
         }
 
         @media (max-width: 768px) {
@@ -214,6 +258,16 @@
             <h1>📝 NaNoWriMo Tracker</h1>
             <p class="subtitle">Track your daily writing progress</p>
         </header>
+
+        <div id="firebaseNotice" class="firebase-notice" style="display: none;">
+            <h3>⚠️ Firebase Not Configured</h3>
+            <p>To enable online syncing, you need to set up Firebase:</p>
+            <p>1. Go to <a href="https://console.firebase.google.com/" target="_blank" style="color: #5D8A3A; font-weight: 600;">Firebase Console</a></p>
+            <p>2. Create a new project (or use existing)</p>
+            <p>3. Create a Realtime Database (start in test mode)</p>
+            <p>4. Go to Project Settings → General → Your apps → Web app</p>
+            <p>5. Copy the Firebase config and paste it in the JavaScript section of this HTML file (look for <code>FIREBASE_CONFIG_HERE</code>)</p>
+        </div>
 
         <div class="card">
             <h2>Set Your Profile</h2>
@@ -315,6 +369,39 @@
     </div>
 
     <script>
+       const firebaseConfig = {
+  apiKey: "AIzaSyAGYHWJ5EHzeGyXZpLMCK8_eiXm2As0bKw",
+  authDomain: "word-tracker-964d4.firebaseapp.com",
+  databaseURL: "https://word-tracker-964d4-default-rtdb.firebaseio.com",
+  projectId: "word-tracker-964d4",
+  storageBucket: "word-tracker-964d4.firebasestorage.app",
+  messagingSenderId: "327663637712",
+  appId: "1:327663637712:web:6804d9e6e35c5ab421fad5",
+  measurementId: "G-F0YB09G8CC"
+};
+
+        // Initialize Firebase
+        let database = null;
+        let firebaseInitialized = false;
+
+        try {
+            if (firebaseConfig.apiKey !== "YOUR_API_KEY_HERE") {
+                firebase.initializeApp(firebaseConfig);
+                database = firebase.database();
+                firebaseInitialized = true;
+                console.log('Firebase initialized successfully');
+            } else {
+                console.warn('Firebase not configured - using localStorage only');
+                document.getElementById('firebaseNotice').style.display = 'block';
+            }
+        } catch (error) {
+            console.error('Firebase initialization error:', error);
+            document.getElementById('firebaseNotice').style.display = 'block';
+        }
+
+        // ========================================
+        // APP STATE
+        // ========================================
         let goal = 50000;
         let startDate = new Date('2025-11-01');
         let entries = {};
@@ -323,6 +410,9 @@
         let username = '';
         let chart = null;
 
+        // ========================================
+        // DATA MANAGEMENT
+        // ========================================
         async function loadData() {
             const savedData = localStorage.getItem('nanoWrimoTracker');
             if (savedData) {
@@ -338,7 +428,7 @@
                     document.getElementById('startDate').value = startDate.toISOString().split('T')[0];
                     document.getElementById('username').value = username;
                     
-                    if (friendUsernames.length > 0) {
+                    if (friendUsernames.length > 0 && firebaseInitialized) {
                         await loadFriendsData();
                     }
                 } catch (e) {
@@ -357,7 +447,7 @@
             };
             localStorage.setItem('nanoWrimoTracker', JSON.stringify(data));
             
-            if (username && window.storage) {
+            if (username && firebaseInitialized && database) {
                 try {
                     const cloudData = {
                         name: username,
@@ -366,9 +456,10 @@
                         entries: entries,
                         lastUpdated: new Date().toISOString()
                     };
-                    await window.storage.set(`user:${username}`, JSON.stringify(cloudData), true);
+                    await database.ref('users/' + username).set(cloudData);
+                    console.log('Data synced to Firebase');
                 } catch (e) {
-                    console.error('Error saving to cloud:', e);
+                    console.error('Error saving to Firebase:', e);
                 }
             }
         }
@@ -379,33 +470,42 @@
                 alert('Please enter a username');
                 return;
             }
-            
-            if (window.storage) {
-                try {
-                    const existing = await window.storage.get(`user:${newUsername}`, true);
-                    if (existing && existing.value && username !== newUsername) {
-                        const proceed = confirm('This username is already in use. Continue anyway? (You will overwrite their data)');
-                        if (!proceed) return;
-                    }
-                } catch (e) {
-                    // Username doesn't exist, which is fine
-                }
+
+            if (!firebaseInitialized) {
+                alert('Firebase not configured. Your data will only be saved locally.');
+                username = newUsername;
+                await saveData();
+                return;
             }
             
-            username = newUsername;
-            await saveData();
-            alert(`Username saved! You're now syncing as "${username}"`);
+            try {
+                const snapshot = await database.ref('users/' + newUsername).once('value');
+                if (snapshot.exists() && username !== newUsername) {
+                    const proceed = confirm('This username is already in use. Continue anyway? (You will overwrite their data)');
+                    if (!proceed) return;
+                }
+                
+                username = newUsername;
+                await saveData();
+                alert(`Username saved! You're now syncing as "${username}"`);
+            } catch (e) {
+                console.error('Error checking username:', e);
+                alert('Error saving username. Check console for details.');
+            }
         }
 
         async function loadFriendsData() {
-            if (!window.storage) return;
+            if (!firebaseInitialized || !database) {
+                console.warn('Firebase not available for loading friends');
+                return;
+            }
             
             friends = [];
             for (const friendUsername of friendUsernames) {
                 try {
-                    const result = await window.storage.get(`user:${friendUsername}`, true);
-                    if (result && result.value) {
-                        const friendData = JSON.parse(result.value);
+                    const snapshot = await database.ref('users/' + friendUsername).once('value');
+                    if (snapshot.exists()) {
+                        const friendData = snapshot.val();
                         friends.push(friendData);
                     }
                 } catch (e) {
@@ -431,14 +531,14 @@
                 return;
             }
             
-            if (!window.storage) {
-                alert('Cloud storage not available');
+            if (!firebaseInitialized || !database) {
+                alert('Firebase not configured. Online friend syncing is not available.');
                 return;
             }
             
             try {
-                const result = await window.storage.get(`user:${friendUsername}`, true);
-                if (!result || !result.value) {
+                const snapshot = await database.ref('users/' + friendUsername).once('value');
+                if (!snapshot.exists()) {
                     alert(`User "${friendUsername}" not found. Make sure they have saved their username and synced their data.`);
                     return;
                 }
@@ -507,7 +607,7 @@
         }
 
         async function refreshFriendData() {
-            if (friendUsernames.length > 0 && window.storage) {
+            if (friendUsernames.length > 0 && firebaseInitialized && database) {
                 await loadFriendsData();
                 updateDisplay();
             }
@@ -515,6 +615,9 @@
 
         setInterval(refreshFriendData, 30000);
 
+        // ========================================
+        // USER ACTIONS
+        // ========================================
         function setGoal() {
             goal = parseInt(document.getElementById('monthGoal').value) || 50000;
             startDate = new Date(document.getElementById('startDate').value);
@@ -545,6 +648,9 @@
             }
         }
 
+        // ========================================
+        // DISPLAY UPDATES
+        // ========================================
         function updateDisplay() {
             const sortedDates = Object.keys(entries).sort();
             const totalWords = Object.values(entries).reduce((sum, val) => sum + val, 0);
@@ -554,7 +660,6 @@
             const targetDaily = Math.ceil(goal / daysInMonth);
             const dailyAverage = daysWritten > 0 ? Math.round(totalWords / daysWritten) : 0;
             const wordsRemaining = Math.max(0, goal - totalWords);
-            const progress = Math.min(100, Math.round((totalWords / goal) * 100));
             
             let dayNumber = 1;
             if (sortedDates.length > 0) {
@@ -621,7 +726,7 @@
             ];
 
             const friendDatasets = friends.map((friend, index) => {
-                const friendSortedDates = Object.keys(friend.entries).sort();
+                const friendSortedDates = Object.keys(friend.entries || {}).sort();
                 let friendCumulative = 0;
                 const friendData = friendSortedDates.map(date => {
                     friendCumulative += friend.entries[date];
@@ -644,7 +749,7 @@
             });
 
             let allDates;
-            const allEntryDates = [...sortedDates, ...friends.flatMap(f => Object.keys(f.entries))];
+            const allEntryDates = [...sortedDates, ...friends.flatMap(f => Object.keys(f.entries || {}))];
             if (allEntryDates.length > 0) {
                 allDates = [...new Set([...allEntryDates, ...targetData.map(d => d.x)])].sort();
             } else {
@@ -697,63 +802,3 @@
                                 color: '#5D8A3A',
                                 font: {
                                     family: 'Fredoka',
-                                    weight: 600
-                                }
-                            },
-                            ticks: {
-                                maxRotation: 45,
-                                minRotation: 45,
-                                maxTicksLimit: 15,
-                                color: '#7FA650'
-                            }
-                        },
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Words',
-                                color: '#5D8A3A',
-                                font: {
-                                    family: 'Fredoka',
-                                    weight: 600
-                                }
-                            },
-                            ticks: {
-                                callback: function(value) {
-                                    return value.toLocaleString();
-                                },
-                                color: '#7FA650'
-                            }
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            labels: {
-                                font: {
-                                    family: 'Fredoka',
-                                    weight: 600
-                                },
-                                color: '#5D8A3A'
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return context.dataset.label + ': ' + context.parsed.y.toLocaleString() + ' words';
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        window.addEventListener('DOMContentLoaded', async () => {
-            await loadData();
-            document.getElementById('entryDate').valueAsDate = new Date();
-            updateDisplay();
-            updateFriendsList();
-        });
-    </script>
-</body>
-</html>
