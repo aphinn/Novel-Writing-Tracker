@@ -369,7 +369,11 @@
     </div>
 
     <script>
-       const firebaseConfig = {
+        // ========================================
+        // FIREBASE CONFIGURATION
+        // ========================================
+        // Replace this with your Firebase config from the Firebase Console
+        const firebaseConfig = {
   apiKey: "AIzaSyAGYHWJ5EHzeGyXZpLMCK8_eiXm2As0bKw",
   authDomain: "word-tracker-964d4.firebaseapp.com",
   databaseURL: "https://word-tracker-964d4-default-rtdb.firebaseio.com",
@@ -802,3 +806,75 @@
                                 color: '#5D8A3A',
                                 font: {
                                     family: 'Fredoka',
+                                    weight: 600
+                                }
+                            },
+                            ticks: {
+                                maxRotation: 45,
+                                minRotation: 45,
+                                maxTicksLimit: 15,
+                                color: '#7FA650'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Words',
+                                color: '#5D8A3A',
+                                font: {
+                                    family: 'Fredoka',
+                                    weight: 600
+                                }
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString();
+                                },
+                                color: '#7FA650'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                font: {
+                                    family: 'Fredoka',
+                                    weight: 600
+                                },
+                                color: '#5D8A3A'
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.parsed.y.toLocaleString() + ' words';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // ========================================
+        // INITIALIZATION
+        // ========================================
+        window.addEventListener('DOMContentLoaded', async () => {
+            await loadData();
+            document.getElementById('entryDate').valueAsDate = new Date();
+            updateDisplay();
+            updateFriendsList();
+        });
+// Make key functions accessible globally for inline onclick handlers
+window.addEntry = addEntry;
+window.clearEntries = clearEntries;
+window.saveUsername = saveUsername;
+window.setGoal = setGoal;
+window.addFriendByUsername = addFriendByUsername;
+window.clearFriends = clearFriends;
+window.removeFriend = removeFriend;
+
+    </script>
+</body>
+</html>
